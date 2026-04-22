@@ -1,0 +1,807 @@
+@{
+    ViewData["Title"] = "SP Benchmark Tester";
+    Layout = "_Layout";
+}
+
+@section Styles {
+<style>
+    /* Hide footer on this page */
+    footer.footer {
+        display: none !important;
+    }
+
+    /* Make body full height */
+    body {
+        margin-bottom: 0 !important;
+        overflow: hidden;
+    }
+
+    /* Remove container padding for full width */
+    .container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    main.pb-3 {
+        padding-bottom: 0 !important;
+    }
+</style>
+}
+
+<style>
+    .sp-benchmark-container {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+        height: calc(100vh - 80px);
+        background: #f8f9fa;
+        overflow: hidden;
+    }
+
+    .left-panel {
+        width: 35%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 8px;
+    }
+
+    .left-panel::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .left-panel::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .left-panel::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 10px;
+    }
+
+    .left-panel::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
+
+    .right-panel {
+        width: 65%;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        overflow: hidden;
+    }
+
+    .sp-list-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        padding: 20px;
+        flex-shrink: 0;
+    }
+
+    .sp-list-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .sp-list-title::before {
+        content: "⚡";
+        font-size: 20px;
+    }
+
+    .sp-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 0;
+    }
+
+    .sp-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: white;
+    }
+
+    .sp-item:hover {
+        background: #f0f7ff;
+        border-color: #4CAF50;
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.15);
+    }
+
+    .sp-item.active {
+        background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+        border-color: #4CAF50;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    }
+
+    .sp-name {
+        font-size: 12px;
+        flex-grow: 1;
+        font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    .run-sp-btn {
+        padding: 5px 12px;
+        background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .run-sp-btn:hover {
+        background: linear-gradient(135deg, #45a049 0%, #3d8b40 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+
+    .run-sp-btn:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .parameters-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        padding: 20px;
+        margin-top: 12px;
+    }
+
+    .params-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .params-title::before {
+        content: "⚙️";
+        font-size: 18px;
+    }
+
+    .param-group {
+        margin-bottom: 12px;
+    }
+
+    .param-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: #2c3e50;
+        font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    .param-hint {
+        display: block;
+        font-size: 10px;
+        color: #7f8c8d;
+        margin-bottom: 4px;
+        font-style: italic;
+    }
+
+    .param-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 2px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 12px;
+        box-sizing: border-box;
+        transition: all 0.2s;
+        font-family: 'Consolas', 'Courier New', monospace;
+    }
+
+    .param-input:focus {
+        outline: none;
+        border-color: #2196F3;
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+    }
+
+    .param-input:disabled {
+        background: #f5f5f5;
+        color: #999;
+        cursor: not-allowed;
+    }
+
+    .param-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .execute-btn {
+        width: 100%;
+        padding: 12px;
+        background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 8px;
+        box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    }
+
+    .execute-btn:hover:not(:disabled) {
+        background: linear-gradient(135deg, #1976D2 0%, #1565C0 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
+    }
+
+    .execute-btn:disabled {
+        background: #cccccc;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+    }
+
+    .result-grid-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        padding: 24px;
+        flex: 1;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .grid-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .grid-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .grid-title::before {
+        content: "📊";
+        font-size: 20px;
+    }
+
+    .row-count {
+        font-size: 14px;
+        color: #fff;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+
+    .error-message {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        color: #c62828;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        border-left: 5px solid #c62828;
+        font-weight: 500;
+        box-shadow: 0 2px 6px rgba(198, 40, 40, 0.1);
+    }
+
+    .success-message {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        color: #2e7d32;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        border-left: 5px solid #4CAF50;
+        font-weight: 500;
+        box-shadow: 0 2px 6px rgba(76, 175, 80, 0.1);
+    }
+
+    .grid-container {
+        overflow: auto;
+        flex: 1;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        background: white;
+    }
+
+    .data-table thead {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .data-table th {
+        padding: 12px 14px;
+        text-align: left;
+        font-weight: 700;
+        border-bottom: 3px solid #2196F3;
+        white-space: nowrap;
+        color: #1a1a1a;
+    }
+
+    .data-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid #f0f0f0;
+        white-space: nowrap;
+    }
+
+    .data-table tbody tr:hover {
+        background: #f0f7ff;
+    }
+
+    .data-table tbody tr:nth-child(even) {
+        background: #fafafa;
+    }
+
+    .execution-log-section {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+        padding: 24px;
+        max-height: 320px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .log-grid-container {
+        overflow: auto;
+        flex: 1;
+        border: 2px solid #e8e8e8;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 3px solid rgba(255,255,255,0.3);
+        border-top: 3px solid white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 10px;
+    }
+
+    @@keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+        color: white;
+        font-weight: 600;
+    }
+
+    .status-success {
+        color: #4CAF50;
+        font-weight: 700;
+    }
+
+    .status-error {
+        color: #f44336;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        padding: 60px 40px;
+        text-align: center;
+        color: #999;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .empty-state-text {
+        font-size: 15px;
+        color: #666;
+    }
+
+    .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .checkbox-group label {
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        margin: 0;
+        color: #2c3e50;
+    }
+
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e0e0e0, transparent);
+        margin: 16px 0;
+    }
+</style>
+
+<div class="sp-benchmark-container">
+    <!-- Left Panel -->
+    <div class="left-panel">
+        <!-- SP List and Parameters Combined -->
+        <div class="sp-list-section">
+            <div class="sp-list-title">Stored Procedures</div>
+            <div class="sp-list" id="spList"></div>
+
+            <!-- Divider -->
+            <div class="divider"></div>
+
+            <!-- Parameters -->
+            <div class="params-title">Parameters</div>
+
+            <div class="param-group">
+                <label class="param-label" id="cursorLabel">Select a stored procedure first</label>
+                <span class="param-hint">Leave empty for first page (NULL)</span>
+                <input type="text" class="param-input" id="cursorInput" placeholder="e.g., Smith" disabled>
+            </div>
+
+            <!-- Standard Entity ID Parameters -->
+            <div id="standardParams">
+                <div class="param-group">
+                    <label class="param-label">@@LastEntityId</label>
+                    <span class="param-hint">Default: 0</span>
+                    <input type="number" class="param-input" id="lastEntityIdInput" value="0">
+                </div>
+            </div>
+
+            <!-- Mobile SP Special Parameters -->
+            <div id="mobileParams" style="display: none;">
+                <div class="param-row">
+                    <div class="param-group">
+                        <label class="param-label">@@LastMemberDocId</label>
+                        <span class="param-hint">For non-NULL mobiles</span>
+                        <input type="number" class="param-input" id="lastMemberDocIdInput" value="0">
+                    </div>
+
+                    <div class="param-group">
+                        <label class="param-label">@@LastNullMemberDocId</label>
+                        <span class="param-hint">For NULL mobiles</span>
+                        <input type="number" class="param-input" id="lastNullMemberDocIdInput" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <button class="execute-btn" id="executeBtn" disabled>
+                🚀 Execute Stored Procedure
+            </button>
+        </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+        <!-- Result Grid -->
+        <div class="result-grid-section">
+            <div class="grid-header">
+                <div class="grid-title">Query Results</div>
+                <div class="row-count" id="rowCount">0 rows</div>
+            </div>
+            <div id="messageContainer"></div>
+            <div class="grid-container" id="resultGridContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔍</div>
+                    <div class="empty-state-text">Select a stored procedure and click Execute to see results</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Execution Log -->
+        <div class="execution-log-section">
+            <div class="grid-header">
+                <div class="grid-title">Execution Log</div>
+            </div>
+            <div class="log-grid-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>SP Name</th>
+                            <th>Time (ms)</th>
+                            <th>Rows</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Executed At</th>
+                            <th>Status</th>
+                            <th>Error Message</th>
+                        </tr>
+                    </thead>
+                    <tbody id="executionLogBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let selectedSp = null;
+    let spInfoMap = {};
+    let executionLogs = [];
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', async () => {
+        await loadStoredProcedures();
+        setupEventListeners();
+    });
+
+    async function loadStoredProcedures() {
+        try {
+            const response = await fetch('/SpBenchmark/GetStoredProcedures');
+            const spList = await response.json();
+
+            const container = document.getElementById('spList');
+            container.innerHTML = '';
+
+            spList.forEach(sp => {
+                spInfoMap[sp.name] = sp;
+
+                const item = document.createElement('div');
+                item.className = 'sp-item';
+                item.dataset.spName = sp.name;
+                item.innerHTML = `
+                    <span class="sp-name">${sp.displayName}</span>
+                    <button class="run-sp-btn" onclick="executeStoredProcedure('${sp.name}'); event.stopPropagation();">▶ Run</button>
+                `;
+                item.addEventListener('click', () => selectStoredProcedure(sp.name));
+                container.appendChild(item);
+            });
+        } catch (error) {
+            console.error('Failed to load stored procedures:', error);
+            showMessage('Failed to load stored procedures: ' + error.message, 'error');
+        }
+    }
+
+    function selectStoredProcedure(spName) {
+        selectedSp = spName;
+
+        // Update UI
+        document.querySelectorAll('.sp-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.spName === spName);
+        });
+
+        // Update parameter label
+        const spInfo = spInfoMap[spName];
+        document.getElementById('cursorLabel').textContent = spInfo.cursorLabel;
+        document.getElementById('cursorInput').disabled = false;
+        document.getElementById('executeBtn').disabled = false;
+
+        // Show/hide appropriate parameter sections
+        if (spInfo.isSpecialMobile) {
+            document.getElementById('standardParams').style.display = 'none';
+            document.getElementById('mobileParams').style.display = 'block';
+        } else {
+            document.getElementById('standardParams').style.display = 'block';
+            document.getElementById('mobileParams').style.display = 'none';
+        }
+
+        // Clear previous results
+        document.getElementById('messageContainer').innerHTML = '';
+    }
+
+    function setupEventListeners() {
+        document.getElementById('executeBtn').addEventListener('click', () => {
+            if (selectedSp) {
+                executeStoredProcedure(selectedSp);
+            }
+        });
+    }
+
+    async function executeStoredProcedure(spName) {
+        const spInfo = spInfoMap[spName];
+        const cursorValue = document.getElementById('cursorInput').value.trim();
+
+        let requestBody = {
+            spName: spName,
+            cursorValue: cursorValue || null,
+            isFirstPage: cursorValue ? false : true,  // Auto-detect: empty cursor = first page
+            pageSize: 20  // Fixed page size
+        };
+
+        // Add parameters based on SP type
+        if (spInfo.isSpecialMobile) {
+            requestBody.lastMemberDocId = parseInt(document.getElementById('lastMemberDocIdInput').value) || 0;
+            requestBody.lastNullMemberDocId = parseInt(document.getElementById('lastNullMemberDocIdInput').value) || 0;
+        } else {
+            requestBody.lastEntityId = parseInt(document.getElementById('lastEntityIdInput').value) || 0;
+        }
+
+        const executeBtn = document.getElementById('executeBtn');
+        const originalText = executeBtn.innerHTML;
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<span class="spinner"></span><span class="loading-text">Executing...</span>';
+
+        // Clear previous messages
+        document.getElementById('messageContainer').innerHTML = '';
+
+        try {
+            const response = await fetch('/SpBenchmark/ExecuteSp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const result = await response.json();
+
+            // DEBUG: Log what we're getting back
+            console.log('=== SP EXECUTION RESULT ===');
+            console.log('Success:', result.success);
+            console.log('Rows Returned:', result.rowsReturned);
+            console.log('Result Data Length:', result.resultData ? result.resultData.length : 'null');
+            console.log('Error Message:', result.errorMessage);
+            console.log('Full Result:', result);
+            console.log('========================');
+
+            // Display results
+            displayResults(result);
+
+            // Add to execution log
+            addExecutionLog(result);
+
+            // Show success message
+            if (result.success) {
+                showMessage(`✓ Executed successfully in ${result.executionTimeMs}ms`, 'success');
+            }
+
+        } catch (error) {
+            showMessage('❌ Failed to execute: ' + error.message, 'error');
+            console.error('Execution error:', error);
+        } finally {
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = originalText;
+        }
+    }
+
+    function displayResults(result) {
+        const container = document.getElementById('resultGridContainer');
+        const rowCountEl = document.getElementById('rowCount');
+
+        if (!result.success) {
+            showMessage('❌ ' + result.errorMessage, 'error');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">❌</div>
+                    <div class="empty-state-text">Execution failed. Check error message above.</div>
+                </div>
+            `;
+            rowCountEl.textContent = '0 rows';
+            return;
+        }
+
+        rowCountEl.textContent = `${result.rowsReturned} rows`;
+
+        if (result.resultData.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <div class="empty-state-text">No data returned from query</div>
+                </div>
+            `;
+            return;
+        }
+
+        // Build table
+        const columns = Object.keys(result.resultData[0]);
+        let html = '<table class="data-table"><thead><tr>';
+
+        columns.forEach(col => {
+            html += `<th>${col}</th>`;
+        });
+
+        html += '</tr></thead><tbody>';
+
+        result.resultData.forEach((row, rowIndex) => {
+            html += '<tr>';
+            columns.forEach(col => {
+                let value = row[col];
+
+                if (value === null || value === undefined) {
+                    value = '<i style="color: #999;">NULL</i>';
+                } else if (typeof value === 'string' && value.length > 100) {
+                    value = value.substring(0, 100) + '...';
+                }
+
+                html += `<td>${value}</td>`;
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    }
+
+    function addExecutionLog(result) {
+        executionLogs.unshift(result);
+
+        const tbody = document.getElementById('executionLogBody');
+        const row = tbody.insertRow(0);
+
+        const shortSpName = result.spName.replace('usp_Benchmark_', '');
+
+        row.innerHTML = `
+            <td><strong>${shortSpName}</strong></td>
+            <td><strong>${result.executionTimeMs}</strong></td>
+            <td><strong>${result.rowsReturned}</strong></td>
+            <td>${formatDateTime(result.executionStartTime)}</td>
+            <td>${formatDateTime(result.executionEndTime)}</td>
+            <td>${formatDateTime(result.executedAt)}</td>
+            <td class="${result.success ? 'status-success' : 'status-error'}">${result.success ? '✓ Success' : '✗ Failed'}</td>
+            <td>${result.errorMessage || '-'}</td>
+        `;
+    }
+
+    function showMessage(message, type) {
+        const messageContainer = document.getElementById('messageContainer');
+        const className = type === 'error' ? 'error-message' : 'success-message';
+        messageContainer.innerHTML = `<div class="${className}">${message}</div>`;
+
+        // Auto-hide success messages after 5 seconds
+        if (type === 'success') {
+            setTimeout(() => {
+                messageContainer.innerHTML = '';
+            }, 5000);
+        }
+    }
+
+    function formatDateTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+</script>

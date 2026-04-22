@@ -1,0 +1,471 @@
+﻿@{
+    ViewData["Title"] = "Query Benchmark";
+}
+
+<div class="bench-wrapper">
+
+    <!-- Benchmark Query Buttons -->
+    <div class="benchmark-section">
+        <h2 class="section-title">⚡ Keyset Pagination Benchmarks</h2>
+        <div class="query-grid">
+            <div class="query-card" onclick="runQuery('QueryOne')">
+                <div class="query-badge query-one">Q1</div>
+                <div class="query-info">
+                    <h3>OR-based Keyset</h3>
+                    <p>Temp table + OR condition for pagination</p>
+                </div>
+                <button class="run-btn" id="btn-QueryOne">
+                    <span class="btn-icon">▶</span> Run Query
+                </button>
+            </div>
+
+            <div class="query-card" onclick="runQuery('QueryTwo')">
+                <div class="query-badge query-two">Q2</div>
+                <div class="query-info">
+                    <h3>UNION ALL Keyset</h3>
+                    <p>Temp table + UNION ALL for pagination</p>
+                </div>
+                <button class="run-btn" id="btn-QueryTwo">
+                    <span class="btn-icon">▶</span> Run Query
+                </button>
+            </div>
+
+            <div class="query-card" onclick="runQuery('QueryThree')">
+                <div class="query-badge query-three">Q3</div>
+                <div class="query-info">
+                    <h3>Direct Seek</h3>
+                    <p>No temp table, direct index seek</p>
+                </div>
+                <button class="run-btn" id="btn-QueryThree">
+                    <span class="btn-icon">▶</span> Run Query
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Table -->
+    <div class="log-section">
+        <div class="log-header">
+            <h2>Execution Log</h2>
+            <button class="clear-btn" onclick="clearLogs()">🗑 Clear Logs</button>
+        </div>
+        <div class="table-wrap">
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Query</th>
+                        <th>Time (ms)</th>
+                        <th>Rows</th>
+                        <th>Status</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
+                        <th>Executed At</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    <tr class="empty-row">
+                        <td colspan="8">No executions yet. Run a query above.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Result Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal-box">
+        <div class="modal-header" id="modalHeader">
+            <div class="modal-title-row">
+                <span class="modal-icon" id="modalIcon">⚡</span>
+                <div>
+                    <div class="modal-query-name" id="modalQueryName">Q1</div>
+                    <div class="modal-status" id="modalStatus">Success</div>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
+
+        <div class="modal-body">
+            <div class="time-hero">
+                <div class="time-value" id="modalTotalTime">—</div>
+                <div class="time-label">Total Execution Time</div>
+            </div>
+
+            <div class="breakdown-grid" id="breakdownGrid"></div>
+
+            <div class="stat-row">
+                <div class="stat-item">
+                    <div class="stat-val" id="modalRows">—</div>
+                    <div class="stat-label">Rows Returned</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-val" id="modalTime">—</div>
+                    <div class="stat-label">Executed At</div>
+                </div>
+            </div>
+
+            <div class="error-box" id="errorBox" style="display:none">
+                <div class="error-label">❌ Error</div>
+                <div class="error-msg" id="errorMsg"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ── Reset & Base ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        background: #0f1117;
+        color: #e2e8f0;
+        min-height: 100vh;
+    }
+
+    .bench-wrapper {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 24px;
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .bench-header { margin-bottom: 40px; }
+    .bench-title { display: flex; align-items: center; gap: 18px; }
+    .bench-icon { font-size: 2.5rem; }
+    .bench-title h1 { font-size: 2rem; font-weight: 700; color: #f8fafc; }
+    .bench-title p { color: #94a3b8; font-size: 0.95rem; margin-top: 4px; }
+
+    /* ── Query Grid ───────────────────────────────────────── */
+    .query-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
+        gap: 16px;
+        margin-bottom: 48px;
+    }
+
+    /* ── Benchmark Section ────────────────────────────────── */
+    .benchmark-section {
+        margin-bottom: 48px;
+    }
+
+    .section-title {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #f8fafc;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .query-card {
+        background: #1e2130;
+        border: 1px solid #2d3250;
+        border-radius: 14px;
+        padding: 22px 24px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        cursor: pointer;
+        transition: border-color 0.2s, transform 0.15s, box-shadow 0.2s;
+    }
+
+    .query-card:hover {
+        border-color: #4f6ef7;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(79, 110, 247, 0.15);
+    }
+
+    .query-badge {
+        background: #4f6ef7;
+        color: #fff;
+        font-weight: 800;
+        font-size: 0.85rem;
+        width: 40px; height: 40px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        letter-spacing: 0.5px;
+    }
+
+    .query-badge.query-one {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .query-badge.query-two {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .query-badge.query-three {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .query-info { flex: 1; }
+    .query-info h3 { font-size: 1rem; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+    .query-info p  { font-size: 0.8rem; color: #64748b; }
+
+    .run-btn {
+        background: transparent;
+        border: 1.5px solid #4f6ef7;
+        color: #4f6ef7;
+        padding: 8px 18px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .run-btn:hover { background: #4f6ef7; color: #fff; }
+    .run-btn.loading { background: #2d3250; border-color: #2d3250; color: #64748b; cursor: wait; }
+
+    /* ── Log Table ────────────────────────────────────────── */
+    .log-section { background: #1e2130; border: 1px solid #2d3250; border-radius: 14px; overflow: hidden; }
+    .log-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #2d3250; }
+    .log-header h2 { font-size: 1rem; font-weight: 600; }
+
+    .clear-btn {
+        background: transparent;
+        border: 1px solid #dc2626;
+        color: #dc2626;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+    }
+    .clear-btn:hover { background: #dc2626; color: #fff; }
+
+    .table-wrap { overflow-x: auto; }
+    #logTable { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    #logTable thead { background: #161a27; }
+    #logTable th { padding: 12px 16px; text-align: left; color: #64748b; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    #logTable td { padding: 12px 16px; border-top: 1px solid #2d3250; }
+    #logTable tbody tr:hover { background: #252a3d; }
+    .empty-row td { text-align: center; color: #475569; padding: 32px; }
+
+    .badge-success { background: #14532d; color: #4ade80; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-fail    { background: #450a0a; color: #f87171; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+
+    .time-fast   { color: #4ade80; font-weight: 700; }
+    .time-medium { color: #facc15; font-weight: 700; }
+    .time-slow   { color: #f87171; font-weight: 700; }
+
+    /* ── Modal ────────────────────────────────────────────── */
+    .modal-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal-box {
+        background: #1e2130;
+        border: 1px solid #2d3250;
+        border-radius: 18px;
+        width: 100%;
+        max-width: 520px;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+        animation: popIn 0.25s cubic-bezier(.34,1.56,.64,1);
+    }
+
+    @@keyframes popIn {
+        from { opacity: 0; transform: scale(0.92) translateY(10px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 22px 24px 18px;
+        border-bottom: 1px solid #2d3250;
+    }
+    .modal-title-row { display: flex; align-items: center; gap: 14px; }
+    .modal-icon { font-size: 1.8rem; }
+    .modal-query-name { font-size: 1.1rem; font-weight: 700; color: #f1f5f9; }
+    .modal-status { font-size: 0.8rem; margin-top: 2px; }
+    .modal-status.success { color: #4ade80; }
+    .modal-status.fail    { color: #f87171; }
+
+    .modal-close {
+        background: none; border: none; color: #64748b;
+        font-size: 1.2rem; cursor: pointer;
+        width: 32px; height: 32px;
+        border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    }
+    .modal-close:hover { background: #2d3250; color: #e2e8f0; }
+
+    .modal-body { padding: 24px; }
+
+    .time-hero { text-align: center; padding: 20px 0 24px; }
+    .time-value { font-size: 3.5rem; font-weight: 800; color: #4f6ef7; letter-spacing: -2px; }
+    .time-label { color: #64748b; font-size: 0.85rem; margin-top: 4px; }
+
+    .breakdown-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .breakdown-item {
+        background: #161a27;
+        border: 1px solid #2d3250;
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+    }
+    .breakdown-val   { font-size: 1.3rem; font-weight: 700; color: #a5b4fc; }
+    .breakdown-label { font-size: 0.7rem; color: #64748b; margin-top: 4px; }
+
+    .stat-row {
+        display: flex; gap: 12px; margin-top: 4px;
+    }
+    .stat-item {
+        flex: 1;
+        background: #161a27;
+        border: 1px solid #2d3250;
+        border-radius: 10px;
+        padding: 14px;
+        text-align: center;
+    }
+    .stat-val   { font-size: 1.2rem; font-weight: 700; color: #e2e8f0; }
+    .stat-label { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+
+    .error-box {
+        background: #450a0a;
+        border: 1px solid #7f1d1d;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 16px;
+    }
+    .error-label { color: #f87171; font-weight: 600; font-size: 0.85rem; margin-bottom: 6px; }
+    .error-msg   { color: #fca5a5; font-size: 0.8rem; word-break: break-word; }
+</style>
+
+<script>
+    let logCounter = 0;
+
+    async function runQuery(key) {
+        const btn = document.getElementById('btn-' + key);
+        btn.classList.add('loading');
+        btn.textContent = '⏳ Running…';
+
+        try {
+            const res = await fetch(`/api/query/execute/${key}`, { method: 'POST' });
+            const data = await res.json();
+            showModal(data);
+            addLogRow(data);
+        } catch (e) {
+            alert('Network error: ' + e.message);
+        } finally {
+            btn.classList.remove('loading');
+            btn.innerHTML = '<span class="btn-icon">▶</span> Run Query';
+        }
+    }
+
+    function showModal(data) {
+        const overlay = document.getElementById('modalOverlay');
+        document.getElementById('modalQueryName').textContent = data.queryName;
+
+        const status = document.getElementById('modalStatus');
+        const icon   = document.getElementById('modalIcon');
+        if (data.success) {
+            status.textContent = 'Success';
+            status.className = 'modal-status success';
+            icon.textContent = '✅';
+        } else {
+            status.textContent = 'Failed';
+            status.className = 'modal-status fail';
+            icon.textContent = '❌';
+        }
+
+        // Total time with color
+        const tv = document.getElementById('modalTotalTime');
+        tv.textContent = data.executionTimeMs + ' ms';
+        tv.style.color = data.executionTimeMs < 500  ? '#4ade80'
+                       : data.executionTimeMs < 2000 ? '#facc15'
+                       :                               '#f87171';
+
+        // Breakdown
+        const grid = document.getElementById('breakdownGrid');
+        grid.innerHTML = '';
+        const labels = { ConnectionOpenMs: 'Connection Open', QueryExecuteMs: 'Query Execute', DataReadMs: 'Data Read' };
+        for (const [k, v] of Object.entries(data.timingBreakdown || {})) {
+            grid.innerHTML += `
+                <div class="breakdown-item">
+                    <div class="breakdown-val">${v} ms</div>
+                    <div class="breakdown-label">${labels[k] || k}</div>
+                </div>`;
+        }
+
+        document.getElementById('modalRows').textContent = data.rowsReturned ?? '—';
+        document.getElementById('modalTime').textContent  = new Date(data.executedAt).toLocaleTimeString();
+
+        const eb = document.getElementById('errorBox');
+        if (!data.success && data.errorMessage) {
+            eb.style.display = 'block';
+            document.getElementById('errorMsg').textContent = data.errorMessage;
+        } else {
+            eb.style.display = 'none';
+        }
+
+        overlay.classList.add('active');
+    }
+
+    function closeModal(e) {
+        if (!e || e.target === document.getElementById('modalOverlay') || e.currentTarget?.classList.contains('modal-close')) {
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+    }
+
+    function addLogRow(data) {
+        const tbody = document.getElementById('logBody');
+        const empty = tbody.querySelector('.empty-row');
+        if (empty) empty.remove();
+
+        logCounter++;
+        const timeClass = data.executionTimeMs < 500  ? 'time-fast'
+                        : data.executionTimeMs < 2000 ? 'time-medium'
+                        :                               'time-slow';
+
+        const badge = data.success
+            ? '<span class="badge-success">✓ Success</span>'
+            : '<span class="badge-fail">✗ Failed</span>';
+
+        // Format times
+        const startTime = data.timingBreakdown?.ExecutionStartTime 
+            ? new Date(data.timingBreakdown.ExecutionStartTime).toLocaleTimeString() 
+            : '—';
+        const endTime = data.timingBreakdown?.ExecutionEndTime 
+            ? new Date(data.timingBreakdown.ExecutionEndTime).toLocaleTimeString() 
+            : '—';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>#${logCounter}</td>
+            <td><strong>${data.queryName}</strong></td>
+            <td class="${timeClass}">${data.executionTimeMs} ms</td>
+            <td>${data.rowsReturned ?? '—'}</td>
+            <td>${badge}</td>
+            <td>${startTime}</td>
+            <td>${endTime}</td>
+            <td>${new Date(data.executedAt).toLocaleString()}</td>
+        `;
+        tbody.insertBefore(tr, tbody.firstChild);
+    }
+
+    async function clearLogs() {
+        if (!confirm('Clear the log grid? (Database records will be kept)')) return;
+        await fetch('/api/query/logs', { method: 'DELETE' });
+        document.getElementById('logBody').innerHTML = `<tr class="empty-row"><td colspan="8">No executions yet. Run a query above.</td></tr>`;
+        logCounter = 0;
+    }
+</script>
