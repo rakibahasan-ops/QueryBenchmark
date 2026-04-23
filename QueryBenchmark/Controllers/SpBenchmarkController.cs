@@ -511,19 +511,15 @@ public class SpBenchmarkController : Controller
             ExecutionStartTime = DateTime.Now
         };
 
-        var stopwatch = Stopwatch.StartNew();
-
         try
         {
             await using var conn = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
-            await conn.OpenAsync();
+            await conn.OpenAsync(); // Connection open আগেই, stopwatch এর বাইরে
 
             SqlCommand cmd;
 
-            // Check if we should use direct query or stored procedure
             if (spInfo.UseDirectQuery && !string.IsNullOrEmpty(spInfo.SqlQuery))
             {
-                // Use direct SQL query
                 cmd = new SqlCommand(spInfo.SqlQuery, conn)
                 {
                     CommandType = CommandType.Text,
@@ -532,7 +528,6 @@ public class SpBenchmarkController : Controller
             }
             else
             {
-                // Use stored procedure
                 cmd = new SqlCommand(spInfo.Name, conn)
                 {
                     CommandType = CommandType.StoredProcedure,
@@ -542,19 +537,16 @@ public class SpBenchmarkController : Controller
 
             await using (cmd)
             {
-                // Add cursor parameter
+          
                 if (!string.IsNullOrWhiteSpace(request.CursorValue))
                 {
                     if (spInfo.CursorDbType == SqlDbType.DateTime)
                     {
                         if (DateTime.TryParse(request.CursorValue, out var dateValue))
-                        {
                             cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.DateTime2).Value = dateValue;
-                        }
                         else
                         {
                             result.ErrorMessage = "Invalid DateTime format";
-                            result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
                             result.ExecutionEndTime = DateTime.Now;
                             return Ok(result);
                         }
@@ -566,19 +558,12 @@ public class SpBenchmarkController : Controller
                 }
                 else
                 {
-                    // For string parameters, use empty string instead of NULL to match SP defaults
                     if (spInfo.CursorDbType == SqlDbType.NVarChar)
-                    {
                         cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.NVarChar, 500).Value = string.Empty;
-                    }
                     else
-                    {
-                        // For DateTime, pass NULL (query will use GETDATE() as default)
                         cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.DateTime2).Value = DBNull.Value;
-                    }
                 }
 
-                // Add entity ID parameter(s) - Mobile SP has special handling
                 if (spInfo.IsSpecialMobile)
                 {
                     cmd.Parameters.Add("@LastMemberDocId", SqlDbType.Int).Value = request.LastMemberDocId;
@@ -589,46 +574,30 @@ public class SpBenchmarkController : Controller
                     cmd.Parameters.Add("@LastEntityId", SqlDbType.Int).Value = request.LastEntityId;
                 }
 
-                // Add PageSize parameter
                 cmd.Parameters.Add("@PageSize", SqlDbType.Int).Value = request.PageSize;
-
-                // Add IsFirstPage parameter
                 cmd.Parameters.Add("@IsFirstPage", SqlDbType.Bit).Value = request.IsFirstPage;
 
-                // Log parameters for debugging
-                Console.WriteLine($"Executing {spInfo.Name} ({(spInfo.UseDirectQuery ? "Direct Query" : "Stored Procedure")}):");
-                foreach (SqlParameter param in cmd.Parameters)
-                {
-                    Console.WriteLine($"  {param.ParameterName} = {param.Value ?? "NULL"} ({param.SqlDbType})");
-                }
+                // ✅ Connection open হয়ে গেছে, এখন শুধু query execution measure করো
+                var stopwatch = Stopwatch.StartNew();
 
                 await using var reader = await cmd.ExecuteReaderAsync();
-
-                // Read first result set (the actual data)
                 var dataTable = new DataTable();
                 dataTable.Load(reader);
 
-                Console.WriteLine($"Returned {dataTable.Rows.Count} rows from first result set");
-
-                // Check if there's a second result set (execution metadata)
-                // If your SP returns execution stats in a second result set, we can read it here
-                // but for now we'll just use the first result set
+                stopwatch.Stop();
+                // ✅ Pure query execution time
+                result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
 
                 result.RowsReturned = dataTable.Rows.Count;
                 result.ResultData = ConvertDataTableToList(dataTable);
                 result.Success = true;
-
-                stopwatch.Stop();
-                result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
                 result.ExecutionEndTime = DateTime.Now;
             }
         }
         catch (Exception ex)
         {
-            stopwatch.Stop();
             result.Success = false;
             result.ErrorMessage = ex.Message;
-            result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
             result.ExecutionEndTime = DateTime.Now;
             result.RowsReturned = 0;
         }
