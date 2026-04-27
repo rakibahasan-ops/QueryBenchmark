@@ -511,13 +511,36 @@ public class SpBenchmarkController : Controller
             ExecutionStartTime = DateTime.Now
         };
 
+        async Task LogAndReturn()
+        {
+            // Insert into QueryExecutionLog
+            try
+            {
+                await using var logConn = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+                await logConn.OpenAsync();
+                var logCmd = new SqlCommand(@"INSERT INTO QueryExecutionLog
+                    (QueryName, QueryDescription, ExecutionStartTime, ExecutionEndTime, ExecutionTimeMs, RowsReturned, IsSuccess, ErrorMessage)
+                    VALUES (@QueryName, @QueryDescription, @ExecutionStartTime, @ExecutionEndTime, @ExecutionTimeMs, @RowsReturned, @IsSuccess, @ErrorMessage)", logConn);
+                logCmd.Parameters.AddWithValue("@QueryName", spInfo.Name);
+                logCmd.Parameters.AddWithValue("@QueryDescription", spInfo.DisplayName);
+                logCmd.Parameters.AddWithValue("@ExecutionStartTime", result.ExecutionStartTime);
+                logCmd.Parameters.AddWithValue("@ExecutionEndTime", result.ExecutionEndTime);
+                logCmd.Parameters.AddWithValue("@ExecutionTimeMs", result.ExecutionTimeMs);
+                logCmd.Parameters.AddWithValue("@RowsReturned", result.RowsReturned);
+                logCmd.Parameters.AddWithValue("@IsSuccess", result.Success);
+                logCmd.Parameters.AddWithValue("@ErrorMessage", (object?)result.ErrorMessage ?? DBNull.Value);
+                await logCmd.ExecuteNonQueryAsync();
+            }
+            catch { /* Logging failure should not break main flow */ }
+            return;
+        }
+
         try
         {
             await using var conn = new SqlConnection(_config.GetConnectionString("DefaultConnection"));
-            await conn.OpenAsync(); // Connection open আগেই, stopwatch এর বাইরে
+            await conn.OpenAsync();
 
             SqlCommand cmd;
-
             if (spInfo.UseDirectQuery && !string.IsNullOrEmpty(spInfo.SqlQuery))
             {
                 cmd = new SqlCommand(spInfo.SqlQuery, conn)
@@ -537,7 +560,6 @@ public class SpBenchmarkController : Controller
 
             await using (cmd)
             {
-          
                 if (!string.IsNullOrWhiteSpace(request.CursorValue))
                 {
                     if (spInfo.CursorDbType == SqlDbType.DateTime)
@@ -548,6 +570,9 @@ public class SpBenchmarkController : Controller
                         {
                             result.ErrorMessage = "Invalid DateTime format";
                             result.ExecutionEndTime = DateTime.Now;
+                            result.Success = false;
+                            result.RowsReturned = 0;
+                            await LogAndReturn();
                             return Ok(result);
                         }
                     }
@@ -577,17 +602,13 @@ public class SpBenchmarkController : Controller
                 cmd.Parameters.Add("@PageSize", SqlDbType.Int).Value = request.PageSize;
                 cmd.Parameters.Add("@IsFirstPage", SqlDbType.Bit).Value = request.IsFirstPage;
 
-                // ✅ Connection open হয়ে গেছে, এখন শুধু query execution measure করো
                 var stopwatch = Stopwatch.StartNew();
-
                 await using var reader = await cmd.ExecuteReaderAsync();
                 var dataTable = new DataTable();
                 dataTable.Load(reader);
-
                 stopwatch.Stop();
-                // ✅ Pure query execution time
-                result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
 
+                result.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
                 result.RowsReturned = dataTable.Rows.Count;
                 result.ResultData = ConvertDataTableToList(dataTable);
                 result.Success = true;
@@ -602,6 +623,7 @@ public class SpBenchmarkController : Controller
             result.RowsReturned = 0;
         }
 
+        await LogAndReturn();
         return Ok(result);
     }
 
