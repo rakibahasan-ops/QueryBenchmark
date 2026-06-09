@@ -18,6 +18,8 @@ public class SpBenchmarkController : Controller
             DisplayName = "CreationDate ↓",
             CursorLabel = "@LastCreationDate",
             CursorParameterName = "@LastCreationDate",
+            InputCursorLabel = "@InputCreationDate",
+            InputCursorParameterName = "@InputCreationDate",
             CursorDbType = SqlDbType.DateTime,
             UseDirectQuery = true,
             SqlQuery = @"
@@ -87,6 +89,8 @@ public class SpBenchmarkController : Controller
             DisplayName = "FirstName ↑",
             CursorLabel = "@LastFirstName",
             CursorParameterName = "@LastFirstName",
+            InputCursorLabel = "@InputCreationDate",
+            InputCursorParameterName = "@InputCreationDate",
             CursorDbType = SqlDbType.NVarChar,
             UseDirectQuery = true,
             SqlQuery = @"
@@ -560,33 +564,45 @@ public class SpBenchmarkController : Controller
 
             await using (cmd)
             {
-                if (!string.IsNullOrWhiteSpace(request.CursorValue))
+                if (!TryAddCursorParameter(
+                  cmd,
+                  spInfo.CursorParameterName,
+                  request.CursorValue,
+                  spInfo.CursorDbType,
+                  true,
+                  out var error))
                 {
-                    if (spInfo.CursorDbType == SqlDbType.DateTime)
-                    {
-                        if (DateTime.TryParse(request.CursorValue, out var dateValue))
-                            cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.DateTime2).Value = dateValue;
-                        else
-                        {
-                            result.ErrorMessage = "Invalid DateTime format";
-                            result.ExecutionEndTime = DateTime.Now;
-                            result.Success = false;
-                            result.RowsReturned = 0;
-                            await LogAndReturn();
-                            return Ok(result);
-                        }
-                    }
-                    else
-                    {
-                        cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.NVarChar, 500).Value = request.CursorValue;
-                    }
+                    result.ErrorMessage = error;
+                    result.ExecutionEndTime = DateTime.Now;
+                    result.Success = false;
+                    result.RowsReturned = 0;
+
+                    await LogAndReturn();
+
+                    return Ok(result);
                 }
-                else
+
+
+
+                if (!string.IsNullOrWhiteSpace(spInfo.InputCursorParameterName))
                 {
-                    if (spInfo.CursorDbType == SqlDbType.NVarChar)
-                        cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.NVarChar, 500).Value = string.Empty;
-                    else
-                        cmd.Parameters.Add(spInfo.CursorParameterName, SqlDbType.DateTime2).Value = DBNull.Value;
+                    if (!TryAddCursorParameter(
+                            cmd,
+                            spInfo.InputCursorParameterName,
+                            request.InputCursorValue,
+                            spInfo.CursorDbType,
+                            true,
+                            out error))
+                    {
+                        result.ErrorMessage = error;
+                        result.ExecutionEndTime = DateTime.Now;
+                        result.Success = false;
+                        result.RowsReturned = 0;
+
+                        await LogAndReturn();
+
+                        return Ok(result);
+                    }
                 }
 
                 if (spInfo.IsSpecialMobile)
@@ -634,8 +650,13 @@ public class SpBenchmarkController : Controller
         {
             sp.Name,
             sp.DisplayName,
+
             sp.CursorLabel,
             sp.CursorParameterName,
+
+            sp.InputCursorLabel,
+            sp.InputCursorParameterName,
+
             sp.IsSpecialMobile
         }));
     }
@@ -655,5 +676,47 @@ public class SpBenchmarkController : Controller
         }
 
         return rows;
+    }
+
+
+
+    private static bool TryAddCursorParameter(
+    SqlCommand cmd,
+    string parameterName,
+    string? value,
+    SqlDbType dbType,
+    bool allowNull,
+    out string? errorMessage)
+    {
+        errorMessage = null;
+
+        if (dbType == SqlDbType.DateTime)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                cmd.Parameters.Add(parameterName, SqlDbType.DateTime2)
+                    .Value = allowNull
+                        ? DBNull.Value
+                        : DateTime.UtcNow;
+
+                return true;
+            }
+
+            if (!DateTime.TryParse(value, out var dateValue))
+            {
+                errorMessage = $"Invalid DateTime format for {parameterName}";
+                return false;
+            }
+
+            cmd.Parameters.Add(parameterName, SqlDbType.DateTime2)
+                .Value = dateValue;
+
+            return true;
+        }
+
+        cmd.Parameters.Add(parameterName, SqlDbType.NVarChar, 500)
+            .Value = value ?? string.Empty;
+
+        return true;
     }
 }

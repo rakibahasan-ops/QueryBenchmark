@@ -487,15 +487,45 @@
                 <input type="text" class="param-input" id="cursorInput" placeholder="e.g., Smith" disabled>
             </div>
 
-            <!-- Standard Entity ID Parameters -->
-            <div id="standardParams">
-                <div class="param-group">
-                    <label class="param-label">@@LastEntityId</label>
-                    <span class="param-hint">Default: 0</span>
-                    <input type="number" class="param-input" id="lastEntityIdInput" value="0">
-                </div>
-            </div>
+                <!-- Standard Entity ID Parameters -->
+            <div id="standardEntityParams">
+        <div class="param-group">
+            <label class="param-label">@@LastEntityId</label>
+            <span class="param-hint">Default: 0</span>
+            <input type="number"
+                   class="param-input"
+                   id="lastEntityIdInput"
+                   value="0">
+        </div>
+    </div>
 
+    <div id="inputIdsParams">
+        <div class="param-group">
+            <label class="param-label">@@InputIds</label>
+            <span class="param-hint">Optional</span>
+            <input type="number"
+                   class="param-input"
+                   id="inputIdsInput"
+                   value="0">
+        </div>
+    </div>
+    <div id="inputCursorSection" style="display:none;">
+    <div class="param-group">
+        <label class="param-label"
+               id="inputCursorLabel">
+            Input Cursor
+        </label>
+
+        <span class="param-hint">
+            Optional
+        </span>
+
+        <input type="text"
+               class="param-input"
+               id="inputCursorInput"
+               placeholder="Optional cursor value">
+    </div>
+</div>
             <!-- Mobile SP Special Parameters -->
             <div id="mobileParams" style="display: none;">
                 <div class="param-row">
@@ -617,15 +647,25 @@
 
         // Show/hide appropriate parameter sections
         if (spInfo.isSpecialMobile) {
-            document.getElementById('standardParams').style.display = 'none';
+            document.getElementById('standardEntityParams').style.display = 'none';
             document.getElementById('mobileParams').style.display = 'block';
         } else {
-            document.getElementById('standardParams').style.display = 'block';
+            document.getElementById('standardEntityParams').style.display = 'block';
             document.getElementById('mobileParams').style.display = 'none';
         }
 
         // Clear previous results
         document.getElementById('messageContainer').innerHTML = '';
+
+
+        document.getElementById('cursorInput').value = '';
+
+        const inputCursor =
+            document.getElementById('inputCursorInput');
+
+        if (inputCursor) {
+            inputCursor.value = '';
+        }
     }
 
     function setupEventListeners() {
@@ -638,13 +678,37 @@
 
     async function executeStoredProcedure(spName) {
         const spInfo = spInfoMap[spName];
-        const cursorValue = document.getElementById('cursorInput').value.trim();
+        const cursorValue =
+            document.getElementById('cursorInput')
+                .value
+                .trim();
 
-        let requestBody = {
-            spName: spName,
-            cursorValue: cursorValue || null,
-            isFirstPage: cursorValue ? false : true,  // Auto-detect: empty cursor = first page
-            pageSize: 20  // Fixed page size
+        const inputValue =
+            document.getElementById('lastEntityIdInput')
+                .value
+                .trim();
+
+        const inputCursorValue =
+            document.getElementById('inputCursorInput')
+                ?.value
+                ?.trim();
+
+       let requestBody = {
+            spName,
+
+            cursorValue:
+                cursorValue || null,
+
+            inputValue:
+                inputValue || null,
+
+            inputCursorValue:
+                inputCursorValue || null,
+
+            isFirstPage:
+                !cursorValue,
+
+            pageSize: 20
         };
 
         // Add parameters based on SP type

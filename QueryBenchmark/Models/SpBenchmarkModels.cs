@@ -6,23 +6,41 @@ public class SpInfo
 {
     public string Name { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+
     public string CursorLabel { get; set; } = string.Empty;
     public string CursorParameterName { get; set; } = string.Empty;
+
+    public string? InputCursorLabel { get; set; }
+    public string? InputCursorParameterName { get; set; }
+
     public SqlDbType CursorDbType { get; set; }
-    public bool IsSpecialMobile { get; set; } = false;
-    public string? SqlQuery { get; set; }  // Direct SQL query text
-    public bool UseDirectQuery { get; set; } = false;  // Use query instead of SP
+
+    public bool IsSpecialMobile { get; set; }
+
+    public bool UseDirectQuery { get; set; }
+
+    public string? SqlQuery { get; set; }
 }
 
 public class SpExecutionRequest
 {
     public string SpName { get; set; } = string.Empty;
+
     public string? CursorValue { get; set; }
-    public int LastEntityId { get; set; } = 0;
-    public int LastMemberDocId { get; set; } = 0;
-    public int LastNullMemberDocId { get; set; } = 0;
-    public int PageSize { get; set; } = 20;
-    public bool IsFirstPage { get; set; } = true;
+
+    public string? InputValue { get; set; }
+
+    public string? InputCursorValue { get; set; }
+
+    public int LastEntityId { get; set; }
+
+    public int LastMemberDocId { get; set; }
+
+    public int LastNullMemberDocId { get; set; }
+
+    public int PageSize { get; set; }
+
+    public bool IsFirstPage { get; set; }
 }
 
 public class SpExecutionResult
